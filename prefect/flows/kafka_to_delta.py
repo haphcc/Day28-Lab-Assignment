@@ -10,8 +10,9 @@ def consume_and_process():
     """Consume data from Kafka topic"""
     consumer = KafkaConsumer(
         "data.raw",
-        bootstrap_servers="kafka:9092",
+        bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092"),
         auto_offset_reset="earliest",
+        group_id="lab28-prefect",
         consumer_timeout_ms=5000,
         value_deserializer=lambda m: json.loads(m.decode())
     )

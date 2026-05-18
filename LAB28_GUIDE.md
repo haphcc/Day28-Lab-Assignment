@@ -191,7 +191,8 @@ Tạo notebook mới trên Kaggle, bật **GPU T4 x2**, chọn 1 trong 2 option:
 
 ```python
 # Cell 1 — Cài dependencies
-!pip install -q vllm fastapi uvicorn pyngrok mlflow sentence-transformers
+# Chạy trong Kaggle notebook kernel mới; vLLM đã kéo theo FastAPI/Uvicorn.
+!pip install -q vllm pyngrok mlflow sentence-transformers
 
 # Cell 2 — Setup ngrok token (lấy tại ngrok.com/your-authtoken)
 from pyngrok import ngrok
@@ -225,7 +226,8 @@ print(f"vLLM URL (copy this): {vllm_url}")
 
 ```python
 # Cell 1 — Cài dependencies
-!pip install -q vllm fastapi uvicorn cloudflared mlflow sentence-transformers
+# Chạy trong Kaggle notebook kernel mới; vLLM đã kéo theo FastAPI/Uvicorn.
+!pip install -q vllm cloudflared mlflow sentence-transformers
 
 # Cell 2 — Khởi động vLLM server
 import subprocess, threading, time

@@ -80,15 +80,25 @@ Nộp link repo GitHub qua LMS
 
 ## 5 Câu Hỏi Cần Trả Lời Khi Nộp
 
-1. **Phân tích các trade-offs trong thiết kế kiến trúc AI platform của bạn. Bạn đã cân bằng giữa performance, reliability, và maintainability như thế nào?**
+### 1. Architecture trade-offs
 
-2. **Trong kiến trúc hybrid (Local + Kaggle), bạn xử lý ngắt kết nối giữa local và Kaggle như thế nào? Có cơ chế fallback không?**
+The platform separates local orchestration and observability from GPU-heavy model serving. Kafka, Prefect, Redis, Qdrant, Prometheus, Grafana, and the API gateway run locally for repeatable development and easier debugging. vLLM and optional embeddings run on Kaggle GPU to avoid local GPU requirements. This improves cost and accessibility, while the fallback path in the API keeps the demo reliable when the tunnel is not available. The main trade-off is added network latency and tunnel fragility between local services and Kaggle.
 
-3. **Giải thích cách event-driven architecture với Kafka giúp decouple các components trong AI platform của bạn.**
+### 2. Hybrid local + Kaggle disconnect handling
 
-4. **Bạn đã implement observability như thế nào? Logs, metrics, và traces được thu thập và visualized ra sao?**
+The API gateway reads `VLLM_NGROK_URL` as optional configuration. If it is missing or the remote vLLM call fails, the gateway returns a deterministic local fallback answer instead of crashing. Embedding ingestion also supports `EMBED_NGROK_URL` when available and uses deterministic local embeddings otherwise. This provides graceful degradation for local smoke tests and demos.
 
-5. **Nếu một service trong stack (ví dụ: Qdrant hoặc Kafka) bị crash, hệ thống của bạn sẽ xử lý như thế nào? Có graceful degradation không?**
+### 3. Kafka event-driven decoupling
+
+Kafka decouples data producers from downstream processors. Producers only publish records to `data.raw`; they do not need to know whether Prefect, Delta Lake, Redis, or Qdrant are currently processing the data. Consumers can be restarted independently, replay from offsets, and scale separately. This makes ingestion more resilient and keeps component responsibilities clean.
+
+### 4. Observability implementation
+
+The FastAPI gateway exposes Prometheus metrics at `/metrics` using `prometheus-fastapi-instrumentator`. Prometheus scrapes the API gateway through `monitoring/prometheus.yml`, and Grafana is included for dashboards. The API also exposes `/health` for readiness checks. The readiness script verifies API health, metrics, Prometheus, Grafana, Qdrant, Redis, and Kafka topic availability.
+
+### 5. Service crash and graceful degradation
+
+If Qdrant or Redis restarts, Docker Compose brings the services back and the API gateway seeds the demo collection/features again on startup. If Kaggle vLLM is down, the API falls back to local generation. Kafka provides buffering between ingestion and downstream processing, so a temporary Prefect outage does not require producers to change. For production, the next improvements would be persistent volumes for every stateful service, retries with backoff, alert rules, and explicit recovery runbooks.
 
 ## Câu Hỏi Thêm?
 Liên hệ giảng viên qua LMS hoặc office hours.

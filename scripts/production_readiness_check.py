@@ -1,5 +1,8 @@
 # scripts/production_readiness_check.py
-import requests, redis, subprocess
+import subprocess
+
+import redis
+import requests
 
 results = {}
 
@@ -22,7 +25,7 @@ print("\n=== OBSERVABILITY ===")
 check("Prometheus up", lambda:
     requests.get("http://localhost:9090/-/healthy").raise_for_status())
 check("Grafana up", lambda:
-    requests.get("http://localhost:3000/api/health").raise_for_status())
+    requests.get("http://localhost:3000/api/health", auth=("admin", "admin")).raise_for_status())
 check("Metrics endpoint exposed", lambda:
     requests.get("http://localhost:8000/metrics").raise_for_status())
 
@@ -49,11 +52,17 @@ check("Redis reachable", lambda:
 
 print("\n=== KAFKA ===")
 def check_kafka_topics():
+    ps = subprocess.run(
+        ["docker", "compose", "ps", "-q", "kafka"],
+        capture_output=True, text=True
+    )
+    container = ps.stdout.strip() or "lab28-kafka-1"
     result = subprocess.run(
-        ["docker", "exec", "lab28-kafka-1", "kafka-topics", "--list",
+        ["docker", "exec", container, "kafka-topics", "--list",
          "--bootstrap-server", "localhost:9092"],
         capture_output=True, text=True
     )
+    assert result.returncode == 0, result.stderr
     assert "data.raw" in result.stdout
 
 check("Kafka topics exist", check_kafka_topics)
