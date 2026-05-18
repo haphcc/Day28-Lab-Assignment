@@ -880,7 +880,7 @@ check("Prometheus up", lambda:
 check("Grafana up", lambda:
     requests.get("http://localhost:3000/api/health").raise_for_status())
 check("Metrics endpoint exposed", lambda:
-    requests.get("http://localhost:8000/metrics").raise_for_status())
+    requests.get("http://localhost:8000/met/rics").raise_for_status())
 
 print("\n=== SECURITY ===")
 check("Unauthorized request rejected", lambda: (

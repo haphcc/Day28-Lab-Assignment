@@ -19,13 +19,17 @@ def embed_texts(records: list[dict]) -> list[list[float]]:
     if not EMBED_URL:
         return [deterministic_embedding(record["text"]) for record in records]
 
-    response = requests.post(
-        f"{EMBED_URL}/embed",
-        json={"texts": [record["text"] for record in records]},
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()["embeddings"]
+    try:
+        response = requests.post(
+            f"{EMBED_URL}/embed",
+            json={"texts": [record["text"] for record in records]},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()["embeddings"]
+    except Exception as exc:
+        print(f"Embedding service unavailable, using local deterministic embeddings: {exc}")
+        return [deterministic_embedding(record["text"]) for record in records]
 
 
 def embed_and_store(records: list[dict]):

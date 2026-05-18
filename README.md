@@ -52,36 +52,76 @@ Tạo Kaggle Notebook với GPU T4 x2, chọn 1 trong 2 option:
 
 **Option A: Single GPU (đơn giản - dùng 1 GPU)**
 
+**Use these Google Colab cells. This version installs vLLM in a separate venv to avoid Colab package conflicts.**
+
 ```python
-# Cell 1: Install dependencies
-!pip install -q vllm fastapi uvicorn pyngrok mlflow sentence-transformers
+# Cell 1: Create an isolated vLLM environment
+!pip install -q -U uv
+!rm -rf /content/vllm-env
+!uv venv /content/vllm-env
+!/content/vllm-env/bin/python -m pip install -U pip
+!/content/vllm-env/bin/python -m pip install vllm --extra-index-url https://download.pytorch.org/whl/cu129
+!/content/vllm-env/bin/python -m pip install pyngrok requests sentence-transformers mlflow
+```
 
-# Nếu cài vLLM bị lỗi, dùng fallback:
-# !pip install transformers==4.46.3 --quiet
-# !pip install vllm==0.7.3 --quiet
+```python
+# Cell 2: Verify CUDA inside the vLLM environment
+!/content/vllm-env/bin/python - <<'PY'
+import torch
 
-# Cell 2: Setup ngrok
+print("torch:", torch.__version__)
+print("torch cuda:", torch.version.cuda)
+print("cuda available:", torch.cuda.is_available())
+
+if not torch.cuda.is_available():
+    raise RuntimeError("GPU is not enabled. In Colab, select Runtime > Change runtime type > T4 GPU.")
+
+print("gpu:", torch.cuda.get_device_name(0))
+print("memory free/total:", torch.cuda.mem_get_info())
+PY
+```
+
+```python
+# Cell 3: Setup ngrok
 from pyngrok import ngrok
-ngrok.set_auth_token("YOUR_NGROK_TOKEN")  # lấy tại ngrok.com
+ngrok.set_auth_token("YOUR_NGROK_TOKEN")  # Get this token from ngrok.com
+```
 
-# Cell 3: Start vLLM server (single GPU)
-import subprocess, threading, time
+```python
+# Cell 4: Start vLLM server (single GPU)
+import subprocess
+import threading
+import time
+import requests
+
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"
 
 def run_vllm():
     subprocess.run([
-        "python", "-m", "vllm.entrypoints.openai.api_server",
-        "--model", "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4",
+        "/content/vllm-env/bin/vllm", "serve", MODEL_NAME,
+        "--host", "0.0.0.0",
         "--port", "8001",
+        "--dtype", "float16",
         "--max-model-len", "4096",
-        "--gpu-memory-utilization", "0.5"
+        "--gpu-memory-utilization", "0.70",
     ])
 
-thread = threading.Thread(target=run_vllm, daemon=True)
-thread.start()
-time.sleep(60)
-print("vLLM server started")
+threading.Thread(target=run_vllm, daemon=True).start()
 
-# Cell 4: Create ngrok tunnel
+for _ in range(60):
+    try:
+        response = requests.get("http://localhost:8001/health", timeout=2)
+        if response.status_code == 200:
+            print("vLLM server is ready")
+            break
+    except Exception:
+        time.sleep(5)
+else:
+    raise RuntimeError("vLLM did not become ready. Check the output logs above.")
+```
+
+```python
+# Cell 5: Create ngrok tunnel
 tunnel = ngrok.connect(8001, "http")
 print(f"vLLM URL: {tunnel.public_url}")
 ```
